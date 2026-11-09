@@ -68,6 +68,26 @@ if (!gotLock) {
       }, 3000)
     }
 
+    // 截图模式：PROMPT_SCAFFOLD_SCREENSHOT=1 时，窗口渲染完成后截图保存 PNG 并退出（用于生成 README 截图）
+    if (process.env['PROMPT_SCAFFOLD_SCREENSHOT'] === '1') {
+      setTimeout(async () => {
+        const win = getMainWindow()
+        if (win && !win.isDestroyed()) {
+          try {
+            const image = await win.webContents.capturePage()
+            const { writeFileSync } = await import('fs')
+            const out = process.env['PROMPT_SCAFFOLD_SCREENSHOT_PATH'] || 'screenshot.png'
+            writeFileSync(out, image.toPNG())
+            console.log('[main] screenshot saved: ' + out)
+          } catch (err) {
+            console.error('[main] screenshot failed', err)
+          }
+        }
+        setQuitting(true)
+        app.quit()
+      }, 3500)
+    }
+
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()
       else showWindow()
