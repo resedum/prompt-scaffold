@@ -26,19 +26,13 @@ jobs:
         include:
           - os: windows-latest
             script: dist:win
-            artifacts: dist/*.exe
+            artifact: windows
           - os: macos-latest
             script: dist:mac
-            artifacts: dist/*.dmg
-          - os: macos-latest
-            script: dist:mac
-            artifacts: dist/*.zip
+            artifact: macos
           - os: ubuntu-latest
             script: dist:linux
-            artifacts: dist/*.AppImage
-          - os: ubuntu-latest
-            script: dist:linux
-            artifacts: dist/*.deb
+            artifact: linux
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -50,13 +44,36 @@ jobs:
         env:
           # mac 无证书：显式跳过签名（个人版不公证）
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-      - name: Smoke test (Linux 无头跑主进程冒烟)
+      - name: Smoke test (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update && sudo apt-get install -y xvfb
           xvfb-run -a env PROMPT_SCAFFOLD_SMOKE=1 npm start
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os }}-${{ matrix.script }}
-          path: ${{ matrix.artifacts }}
+          name: dist-${{ matrix.artifact }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.deb
           if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: List release files
+        run: find artifacts -type f
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**
+          generate_release_notes: true
