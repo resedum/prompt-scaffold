@@ -34,20 +34,29 @@ jobs:
             script: dist:linux
             artifact: linux
     runs-on: ${{ matrix.os }}
-    env:
-      # 打包工具链走镜像，避免 CI 从 GitHub 下载 electron-builder-binaries 偶发失败
-      ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
-      ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm ci
+
+      # 修复：winCodeSign 工具包内含 macOS 符号链接，Windows 解压会被拒绝（权限不足）导致打包失败。
+      # 这里预先用 -snl-（符号链接当普通文件）手动解压到 electron-builder 缓存，让后续打包命中缓存、跳过解压。
+      - name: Pre-extract winCodeSign (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          CACHE="$LOCALAPPDATA/electron-builder/Cache/winCodeSign/winCodeSign-2.6.0"
+          mkdir -p "$CACHE"
+          curl -sSL -o /tmp/winCodeSign.7z "https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z"
+          ./node_modules/7zip-bin/win/x64/7za.exe x -snl- -bd -y /tmp/winCodeSign.7z "-o$CACHE"
+
       - run: npm run ${{ matrix.script }}
         env:
           # mac 无证书：显式跳过签名（个人版不公证）
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
       - uses: actions/upload-artifact@v4
         with:
           name: dist-${{ matrix.artifact }}
