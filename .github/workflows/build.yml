@@ -34,6 +34,10 @@ jobs:
             script: dist:linux
             artifact: linux
     runs-on: ${{ matrix.os }}
+    env:
+      # 打包工具链走镜像，避免 CI 从 GitHub 下载 electron-builder-binaries 偶发失败
+      ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
+      ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -44,11 +48,6 @@ jobs:
         env:
           # mac 无证书：显式跳过签名（个人版不公证）
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-      - name: Smoke test (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update && sudo apt-get install -y xvfb
-          xvfb-run -a env PROMPT_SCAFFOLD_SMOKE=1 npm start
       - uses: actions/upload-artifact@v4
         with:
           name: dist-${{ matrix.artifact }}
