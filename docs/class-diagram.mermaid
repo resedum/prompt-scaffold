@@ -1,0 +1,104 @@
+classDiagram
+    class Dimension {
+        +string name
+        +string wording
+    }
+    class Summary {
+        +string goal
+        +string[] conclusions
+        +string[] constraints
+        +string[] open
+    }
+    class DimensionResult {
+        +Dimension[] dimensions
+    }
+    class SummaryResult {
+        +Summary summary
+        +Dimension[] dimensions
+    }
+    class ModelConfig {
+        +string presetId
+        +string baseUrl
+        +string apiKey
+        +string model
+        +string visionModel
+    }
+    class UiPrefs {
+        +object windowBounds
+        +string theme
+        +bool trayEnabled
+    }
+    class Preferences {
+        +ModelConfig model
+        +string language
+        +UiPrefs ui
+        +Dimension[] dimensionHabits
+    }
+    class GenerateInput {
+        +string text
+        +ImageData[] images
+        +string language
+    }
+    class ImageData {
+        +string dataUrl
+        +string mime
+        +number width
+        +number height
+    }
+    class PromptBuilder {
+        +buildDimensionsPrompt(GenerateInput, Dimension[]) string
+        +buildSummaryPrompt(GenerateInput) string
+        +estimateTokens(string) number
+        +chunkAndCompress(string) string[]
+    }
+    class JsonParser {
+        +parseDimensions(string) DimensionResult
+        +parseSummary(string) SummaryResult
+        +stripCodeFence(string) string
+    }
+    class LLMProvider {
+        -ModelConfig config
+        +setConfig(ModelConfig) void
+        +generateDimensions(GenerateInput) Dimension[]
+        +summarizeConversation(GenerateInput) SummaryResult
+        -chat(messages[], jsonMode) string
+    }
+    class Storage {
+        -string filePath
+        +load() Preferences
+        +save(Preferences) void
+        +get(key) any
+        +set(key, value) void
+    }
+    class ScreenshotService {
+        +captureScreen() ImageData
+        +crop(ImageData, rect) ImageData
+    }
+    class ClipboardService {
+        +readImage() ImageData
+        +writeText(string) void
+    }
+    class IpcRouter {
+        +register() void
+    }
+    class AppShell {
+        +createWindow() void
+        +createTray() void
+    }
+
+    PromptBuilder ..> GenerateInput
+    PromptBuilder ..> Dimension
+    LLMProvider --> PromptBuilder
+    LLMProvider --> JsonParser
+    LLMProvider --> ModelConfig
+    LLMProvider --> GenerateInput
+    JsonParser ..> DimensionResult
+    JsonParser ..> SummaryResult
+    Storage --> Preferences
+    ScreenshotService ..> ImageData
+    ClipboardService ..> ImageData
+    IpcRouter --> LLMProvider
+    IpcRouter --> Storage
+    IpcRouter --> ScreenshotService
+    IpcRouter --> ClipboardService
+    AppShell --> IpcRouter

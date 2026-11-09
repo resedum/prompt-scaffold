@@ -1,0 +1,56 @@
+sequenceDiagram
+    autonumber
+    participant U as 用户
+    participant UI as 渲染进程(AppState)
+    participant B as bridge(window.api)
+    participant IPC as ipcMain
+    participant LLM as LLMProvider
+    participant PB as PromptBuilder
+    participant JP as JsonParser
+    participant S as Storage
+
+    %% 链路 A：文字输入 → 生成维度
+    U->>UI: 输入文字, 点击「生成」
+    UI->>B: generateDimensions(input)
+    B->>IPC: invoke('ai:generate', input)
+    IPC->>S: get('dimensionHabits')
+    S-->>IPC: 已采纳维度措辞
+    IPC->>LLM: generateDimensions(input)
+    LLM->>PB: buildDimensionsPrompt(input, habits)
+    PB-->>LLM: messages
+    LLM->>LLM: chat(messages, jsonMode)
+    LLM-->>IPC: raw JSON
+    IPC->>JP: parseDimensions(raw)
+    JP-->>IPC: Dimension[]
+    IPC-->>UI: Dimension[]
+    UI->>UI: DimensionList 渲染 + PreviewPanel 拼接
+    U->>UI: 勾选/编辑/删除/新增
+    U->>UI: 复制完整指令 → copyText
+
+    %% 链路 B：截图识图
+    Note over U,IPC: 截图/剪贴板/拖入 → ImageData → 视觉模型
+    U->>UI: 截图 / 粘贴图片 / 拖入图片
+    UI->>IPC: captureScreen / readClipboardImage / pickImageFile
+    IPC-->>UI: ImageData
+    U->>UI: 点击生成（含图片）
+    UI->>LLM: generateDimensions(text + images)
+    LLM->>LLM: chat(视觉模型, image_url base64)
+    LLM-->>UI: Dimension[]
+
+    %% 链路 C：对话总结
+    Note over U,JP: 对话总结模式
+    U->>UI: 粘贴多轮对话 / 拖入 .txt/.md
+    UI->>IPC: invoke('ai:summarize', input)
+    IPC->>LLM: summarizeConversation(input)
+    LLM->>PB: estimateTokens(text)
+    alt 超长文本
+        PB->>PB: chunkAndCompress(分段总结)
+    end
+    LLM->>PB: buildSummaryPrompt(input)
+    PB-->>LLM: messages
+    LLM->>LLM: chat(jsonMode)
+    LLM-->>JP: raw JSON
+    JP-->>LLM: { summary, dimensions }
+    LLM-->>UI: SummaryResult
+    UI->>UI: SummaryView(可编辑) + DimensionList
+    U->>UI: 复制总结 / 复制维度 / 复制合并全文

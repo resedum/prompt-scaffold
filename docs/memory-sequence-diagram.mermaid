@@ -1,0 +1,60 @@
+sequenceDiagram
+    autonumber
+    participant U as 用户
+    participant NE as NoteEditor(渲染)
+    participant BR as bridge(window.api)
+    participant PG as PrivacyGuard
+    participant ES as EnhanceService
+    participant LLM as LLMProvider(llm.ts)
+    participant DL as EnhanceDialog
+    participant MS as MemoryStore
+
+    Note over U,MS: ===== 链路① 输入增强：输入 → 维度清单 → 增强 → 存记忆 =====
+    U->>NE: 输入一段话，点「补全维度」
+    NE->>BR: enhance(text)
+    BR->>PG: check('enhance')
+    alt 档位 = off
+        PG->>ES: 仅用规则维度池（不调模型）
+    else 档位 = local
+        PG->>ES: 本地模型 / 规则维度池
+    else 档位 = external
+        PG->>PG: applySendScope(text)
+        PG->>ES: 裁剪后的发送内容
+        ES->>LLM: generateDimensions(text)
+        LLM-->>ES: Dimension[]
+    end
+    ES-->>NE: Dimension[]（可勾选）
+    NE->>DL: 打开增强弹窗（复用 DimensionList）
+    DL->>U: 展示可勾选维度清单
+    U->>DL: 勾选 / 编辑 / 删除 / 新增
+    DL->>NE: dimensionFields + 追加正文（不静默改写）
+    NE->>MS: create / update Note
+    MS-->>NE: 保存结果
+
+    Note over U,MS: ===== 链路② AI 总结：选中范围 → 本地/外部模型 → 总结 → 提醒 =====
+    participant MP as MemoryPanel
+    participant SS as SummarizeService
+    participant RS as ReminderScheduler
+    participant NF as Notification(托盘)
+
+    U->>MP: 选中范围（全部 / 逐条勾选），点「总结」
+    MP->>BR: summarize(noteIds, scope)
+    BR->>PG: check('summarize')
+    alt 档位 = off
+        PG-->>MP: 提示「未开启 AI」，结束
+    else 档位 = local
+        PG->>SS: 本地模型总结
+        SS->>SS: 本地推理
+    else 档位 = external
+        PG->>PG: applySendScope(notes, 'all'|'selected')
+        PG->>SS: 裁剪后的条目（仅选中/全部 + 去敏）
+        SS->>LLM: chat(总结 prompt)
+        LLM-->>SS: 总结正文
+    end
+    SS-->>MP: SummaryResult
+    MP->>MP: 存 summaries.json + 显示总结
+    alt 用户点「设为提醒」
+        MP->>RS: 生成 ReminderTask
+        RS->>RS: 定时扫描
+        RS->>NF: 到期 → 托盘通知
+    end

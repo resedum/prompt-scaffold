@@ -1,0 +1,21 @@
+node_modules/
+out/
+dist/
+*.log
+.DS_Store
+
+# 环境变量与本地配置（防泄漏 key）
+.env
+.env.*
+*.local
+!.env.example
+
+# IDE / 编辑器
+.idea/
+.vscode/
+*.swp
+
+# 构建与缓存
+*.tsbuildinfo
+.eslintcache
+release/

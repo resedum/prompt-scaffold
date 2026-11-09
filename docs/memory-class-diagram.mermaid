@@ -1,0 +1,191 @@
+classDiagram
+    class Note {
+        +string id
+        +string content
+        +string format
+        +string kind
+        +string[] tags
+        +DimensionField[] dimensionFields
+        +string aiSource
+        +string cycleFolderId
+        +bool pinned
+        +bool archived
+        +string createdAt
+        +string updatedAt
+    }
+    class DimensionField {
+        +string name
+        +string value
+    }
+    class CycleFolder {
+        +string id
+        +string name
+        +string scope
+        +string startDate
+        +string endDate
+        +string[] noteIds
+        +bool archived
+    }
+    class Material {
+        +string id
+        +string title
+        +string fileName
+        +string mimeType
+        +string category
+        +string blobRef
+        +number size
+        +string checksum
+        +string extractedTextRef
+        +string extractedStatus
+        +string[] tags
+        +string currentVersionId
+        +bool archived
+    }
+    class NoteVersion {
+        +string id
+        +string noteId
+        +number versionNo
+        +string content
+        +string checksum
+        +string note
+    }
+    class MaterialVersion {
+        +string id
+        +string materialId
+        +number versionNo
+        +string blobRef
+        +number size
+        +string checksum
+        +string note
+    }
+    class ReminderTask {
+        +string id
+        +string noteId
+        +string remindAt
+        +string repeat
+        +string status
+        +string channel
+    }
+    class SummaryResult {
+        +string id
+        +string[] sourceNoteIds
+        +string engine
+        +string sendScope
+        +string content
+    }
+    class AiExecutionTask {
+        +string id
+        +string language
+        +string codeSnippet
+        +string sandbox
+        +string status
+        +string stdout
+        +string stderr
+    }
+    class BackupManifest {
+        +string id
+        +string path
+        +string location
+        +string scope
+        +number size
+        +string checksum
+    }
+    class PrivacyConfig {
+        +bool masterAiKill
+        +map capabilities
+        +string sendScope
+    }
+    class VersionConfig {
+        +bool enabled
+        +number keepVersions
+        +string binaryPolicy
+    }
+    class StorageConfig {
+        +number quotaWarnBytes
+        +string backupPolicy
+        +number backupRotation
+    }
+    class EditionConfig {
+        +string edition
+        +map features
+        +string licenseValidUntil
+    }
+    class MemoryStore {
+        +createNote(note) Note
+        +updateNote(id, patch) Note
+        +listByPeriod(period) Note[]
+        +createCycleFolder(folder) CycleFolder
+        +archiveToFolder(noteId, folderId) void
+    }
+    class MaterialStore {
+        +addMaterial(file) Material
+        +extractAndIndex(material) void
+        +list() Material[]
+    }
+    class SearchIndex {
+        +build() void
+        +addNote(note) void
+        +addExtractedText(materialId, text) void
+        +search(query) Result[]
+    }
+    class VersionManager {
+        +snapshot(noteOrMaterial) void
+        +listVersions(targetId) Version[]
+        +restore(versionId) void
+        +suggestCleanup() CleanupItem[]
+    }
+    class BackupManager {
+        +backup(location) BackupManifest
+        +restore(manifest) void
+        +rotation() void
+        +quotaStats() QuotaStats
+    }
+    class ReminderScheduler {
+        +start() void
+        +schedule(task) void
+        +tick() void
+    }
+    class SummarizeService {
+        +summarize(noteIds, scope) SummaryResult
+    }
+    class EnhanceService {
+        +enhance(text) DimensionField[]
+    }
+    class CodeSandbox {
+        +run(task) AiExecutionTask
+    }
+    class PrivacyGuard {
+        +check(capability) void
+        +applySendScope(notes, scope) Notes[]
+    }
+    class FeatureGate {
+        +isEnabled(feature) bool
+        +edition() string
+    }
+
+    Note --> DimensionField
+    Note --> CycleFolder
+    Note --> NoteVersion
+    Material --> MaterialVersion
+    Note --> ReminderTask
+    Note --> SummaryResult
+    Note --> AiExecutionTask
+
+    MemoryStore --> Note
+    MemoryStore --> CycleFolder
+    MaterialStore --> Material
+    MaterialStore --> SearchIndex
+    VersionManager --> NoteVersion
+    VersionManager --> MaterialVersion
+    BackupManager --> BackupManifest
+    ReminderScheduler --> ReminderTask
+    SummarizeService --> SummaryResult
+    CodeSandbox --> AiExecutionTask
+
+    SummarizeService --> PrivacyGuard
+    EnhanceService --> PrivacyGuard
+    CodeSandbox --> PrivacyGuard
+    PrivacyGuard --> PrivacyConfig
+    FeatureGate --> EditionConfig
+    VersionManager --> VersionConfig
+    BackupManager --> StorageConfig

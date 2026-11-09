@@ -1,0 +1,62 @@
+name: Build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run typecheck
+      - run: node scripts/check-platform.mjs
+      - run: npm test
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            script: dist:win
+            artifacts: dist/*.exe
+          - os: macos-latest
+            script: dist:mac
+            artifacts: dist/*.dmg
+          - os: macos-latest
+            script: dist:mac
+            artifacts: dist/*.zip
+          - os: ubuntu-latest
+            script: dist:linux
+            artifacts: dist/*.AppImage
+          - os: ubuntu-latest
+            script: dist:linux
+            artifacts: dist/*.deb
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run ${{ matrix.script }}
+        env:
+          # mac 无证书：显式跳过签名（个人版不公证）
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Smoke test (Linux 无头跑主进程冒烟)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb
+          xvfb-run -a env PROMPT_SCAFFOLD_SMOKE=1 npm start
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}-${{ matrix.script }}
+          path: ${{ matrix.artifacts }}
+          if-no-files-found: error
